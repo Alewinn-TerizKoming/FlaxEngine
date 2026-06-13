@@ -15,7 +15,8 @@ namespace FlaxEditor.Modules.SourceCodeEditing
     [HideInEditor]
     public class CachedTypesCollection
     {
-        private bool _hasValidData;
+        private bool _hasValidData; // { get { return false; } set { } }
+
         private readonly int _capacity;
         private readonly Func<ScriptType, bool> _checkFunc;
         private readonly Func<Assembly, bool> _checkAssembly;
@@ -43,6 +44,8 @@ namespace FlaxEditor.Modules.SourceCodeEditing
             _type = type;
             _checkFunc = checkFunc;
             _checkAssembly = checkAssembly;
+
+            Editor.Log($"CTOR {GetType().Name} {GetHashCode()}");
         }
 
         /// <summary>
@@ -68,9 +71,11 @@ namespace FlaxEditor.Modules.SourceCodeEditing
         {
             if (!_hasValidData)
             {
-                if (_list == null)
-                    _list = new List<ScriptType>(_capacity);
+                //if (_list == null)
+                _list ??= new List<ScriptType>(_capacity);
                 _list.Clear();
+
+                Editor.Log($"REBUILD {GetType().Name}");
                 _hasValidData = true;
 
                 Editor.Log("Searching for valid " + (_type != ScriptType.Null ? _type.ToString() : "types"));
@@ -113,8 +118,9 @@ namespace FlaxEditor.Modules.SourceCodeEditing
         /// </summary>
         public virtual void ClearTypes()
         {
-            _list?.Clear();
             _hasValidData = false;
+            _list?.Clear();
+            Editor.Log($"ClearTypes on {GetType().Name} id={GetHashCode()}");
         }
     }
 }

@@ -1,5 +1,7 @@
 // Copyright (c) Wojciech Figat. All rights reserved.
 
+using FlaxEditor.CustomEditors.Dedicated;
+using FlaxEngine;
 using System;
 
 namespace FlaxEditor
@@ -94,8 +96,11 @@ namespace FlaxEditor
             ScriptsLoaded = 8,
         }
 
+        private static int _eventIndex;
         internal static void Internal_OnEvent(EventType type)
         {
+            Editor.Log($"[ScriptsBuilder] #{_eventIndex++} Event => {type}");
+
             switch (type)
             {
             case EventType.CompileBegin:
@@ -113,19 +118,29 @@ namespace FlaxEditor
                 CompilationFailed?.Invoke();
                 break;
             case EventType.ReloadCalled:
-                ScriptsReloadCalled?.Invoke();
+                    SafeInvoke("ScriptsReloadCalled", ScriptsReloadCalled);
+                    //ScriptsReloadCalled?.Invoke();
                 break;
             case EventType.ReloadBegin:
-                ScriptsReloadBegin?.Invoke();
-                break;
+                Editor.Log("=== RELOAD BEGIN ===");
+                    SafeInvoke("ScriptsReloadBegin", ScriptsReloadBegin);
+                    //ScriptsReloadBegin?.Invoke();
+                    break;
             case EventType.Reload:
-                ScriptsReload?.Invoke();
+                Editor.Log("=== RELOAD PRE UNLOAD ===");
+                    DumpEngineStateBeforeUnload();
+                    SafeInvoke("ScriptsReload", ScriptsReload);
+                    //ScriptsReload?.Invoke();
                 break;
             case EventType.ReloadEnd:
-                ScriptsReloadEnd?.Invoke();
+                Editor.Log("=== RELOAD END ===");
+                    SafeInvoke("ScriptsReloadEnd", ScriptsReloadEnd);
+                    //ScriptsReloadEnd?.Invoke();
                 break;
             case EventType.ScriptsLoaded:
-                ScriptsLoaded?.Invoke();
+                Editor.Log("=== SCRIPTS LOADED ===");
+                    SafeInvoke("ScriptsLoaded", ScriptsLoaded);
+                    //ScriptsLoaded?.Invoke();
                 break;
             }
         }
@@ -137,5 +152,82 @@ namespace FlaxEditor
             else
                 CodeEditorAsyncOpenBegin?.Invoke();
         }
+
+        // @Alewinn -----------------------------------------------------
+        private static void SafeInvoke(string name, Action evt)
+        {
+            if (evt == null) return;
+
+            Editor.Log($"[ScriptsBuilder] Invoking {name} -> {evt.GetInvocationList().Length} handlers");
+
+            evt.Invoke();
+        }
+
+        private static void DumpEngineStateBeforeUnload()
+        {
+            Editor.Log("=== ENGINE STATE DUMP BEFORE UNLOAD ===");
+
+            DumpManagedEventLeaks();
+            DumpLoadedAssemblies();
+            DumpPotentialLeakActors();
+        }
+
+        private static void DumpManagedEventLeaks()
+        {
+            Editor.Log("=== EVENT DELEGATES ===");
+
+            var fields = typeof(ScriptsBuilder)
+                .GetFields(System.Reflection.BindingFlags.Static |
+                           System.Reflection.BindingFlags.NonPublic |
+                           System.Reflection.BindingFlags.Public);
+
+            foreach (var f in fields)
+            {
+                if (typeof(Delegate).IsAssignableFrom(f.FieldType))
+                {
+                    var value = f.GetValue(null) as Delegate;
+                    if (value != null)
+                    {
+                        Editor.Log($"[EVENT] {f.Name} => {value.GetInvocationList().Length} subscribers");
+
+                        foreach (var d in value.GetInvocationList())
+                            Editor.Log($"  -> {d.Target?.GetType().FullName}");
+                    }
+                }
+            }
+        }
+
+        private static void DumpLoadedAssemblies()
+        {
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (asm.FullName.Contains("Game") || asm.FullName.Contains("Interaction"))
+                {
+                    Editor.Log($"[ASSEMBLY] {asm.FullName}");
+                }
+            }
+        }
+        private static void DumpPotentialLeakActors()
+        {
+            Editor.Log("=== POTENTIAL LEAK ACTORS ===");
+
+            foreach (var root in Level.GetActors<Actor>())
+            {
+                DumpActorRecursive(root);
+            }
+        }
+        private static void DumpActorRecursive(Actor actor, int depth = 0)
+        {
+            if (actor == null)
+                return;
+
+            Editor.Log($"{new string(' ', depth * 2)}- {actor.Name} ({actor.GetType().Name})");
+
+            for (int i = 0; i < actor.ChildrenCount; i++)
+            {
+                DumpActorRecursive(actor.GetChild(i), depth + 1);
+            }
+        }
+
     }
 }

@@ -543,12 +543,16 @@ namespace FlaxEditor.Surface.Archetypes
 
             private void UpdateSignature()
             {
+                Editor.Log($"UpdateSignature {Title}");
+
                 // Find method and it's signature
                 var methodInfo = GetMethod();
 
                 // Try to restore the signature
                 if (methodInfo)
                 {
+                    Editor.Log($"UpdateSignature -> methodinfo founded for ; {Title}");
+
                     // Update tooltip
                     TooltipText = Editor.Instance.CodeDocs.GetTooltip(methodInfo);
 

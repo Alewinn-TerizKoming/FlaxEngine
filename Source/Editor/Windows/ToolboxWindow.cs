@@ -1,11 +1,10 @@
 // Copyright (c) Wojciech Figat. All rights reserved.
 
-using System;
-using System.Collections.Generic;
 using FlaxEditor.GUI.ContextMenu;
 using FlaxEditor.GUI.Input;
 using FlaxEditor.GUI.Tabs;
 using FlaxEditor.GUI.Tree;
+using FlaxEditor.Modules.SourceCodeEditing;
 using FlaxEditor.Scripting;
 using FlaxEditor.Tools;
 using FlaxEditor.Tools.Foliage;
@@ -14,6 +13,9 @@ using FlaxEditor.Utilities;
 using FlaxEditor.Viewport.Modes;
 using FlaxEngine;
 using FlaxEngine.GUI;
+using System;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace FlaxEditor.Windows
 {
@@ -116,6 +118,10 @@ namespace FlaxEditor.Windows
         private Button _viewDropdown;
         private int _searchFilterMask = (int)SearchFilter.Default;
 
+        // @Alewinn ;
+        // Prevent multiple Event registering /unregistering (from hotreload)
+        private bool _registered;
+
         /// <summary>
         /// The editor instance.
         /// </summary>
@@ -129,10 +135,11 @@ namespace FlaxEditor.Windows
         public SpawnTab(SpriteHandle icon, Editor editor)
         : base(string.Empty, icon)
         {
+            Debug.Log($"SpawnTab CTOR {GetHashCode()}");
+
             Editor = editor;
             Selected += tab => Editor.Windows.EditWin.Viewport.Gizmos.SetActiveMode<TransformGizmoMode>();
-            ScriptsBuilder.ScriptsReload += OnScriptsReload;
-            ScriptsBuilder.ScriptsReloadEnd += OnScriptsReloadEnd;
+            RegisterEvents();
 
             _actorGroups = new Tabs
             {
@@ -165,6 +172,36 @@ namespace FlaxEditor.Windows
             RefreshActorTabs();
 
             _actorGroups.SelectedTabIndex = 1;
+
+        }
+
+        
+
+        /// <summary>
+        /// @Alewinn ; Prevent memory leak while tab reload during hotreload.
+        /// </summary>
+        public void RegisterEvents()
+        {
+            if (_registered)
+                return;
+
+            ScriptsBuilder.ScriptsReload += OnScriptsReload;
+            ScriptsBuilder.ScriptsReloadEnd += OnScriptsReloadEnd;
+            _registered = true;
+        }
+
+        /// <summary>
+        /// @Alewinn ; 
+        /// </summary>
+        public void UnRegisterEvents()
+        {
+            if (!_registered)
+                return;
+
+            ScriptsBuilder.ScriptsReload -= OnScriptsReload;
+            ScriptsBuilder.ScriptsReloadEnd -= OnScriptsReloadEnd;
+
+            _registered = false;
         }
 
         private void OnViewButtonClicked()
@@ -223,6 +260,10 @@ namespace FlaxEditor.Windows
         {
             RefreshActorTabs();
             OnSearchBoxTextChanged();
+
+            // @Alewinn 
+            // Editor.CodeEditing.Actors.ClearTypes();
+            //UnRegisterEvents();
         }
 
         private void RefreshActorTabs()
@@ -357,6 +398,7 @@ namespace FlaxEditor.Windows
                 group.AddChild(string.IsNullOrEmpty(attribute.Name) ? CreateActorItem(Utilities.Utils.GetPropertyNameUI(actorType.Name), actorType) : CreateActorItem(attribute.Name, actorType));
                 group.SortChildren();
             }
+
             _groupSearch.SortChildren();
         }
 
@@ -424,7 +466,7 @@ namespace FlaxEditor.Windows
             }
 
             if (((int)SearchFilter.UI & _searchFilterMask) != 0)
-            { 
+            {
                 foreach (var controlType in Editor.Instance.CodeEditing.Controls.Get())
                 {
                     if (controlType.IsAbstract)
@@ -588,10 +630,24 @@ namespace FlaxEditor.Windows
                 Parent = this
             };
 
-            TabsControl.AddTab(Spawn = new SpawnTab(Editor.Icons.Toolbox96, Editor));
-            TabsControl.AddTab(VertexPaint = new VertexPaintingTab(Editor.Icons.Paint96, Editor));
-            TabsControl.AddTab(Foliage = new FoliageTab(Editor.Icons.Foliage96, Editor));
-            TabsControl.AddTab(Carve = new CarveTab(Editor.Icons.Terrain96, Editor));
+            if (Spawn == null)
+            {
+                TabsControl.AddTab(Spawn = new SpawnTab(Editor.Icons.Toolbox96, Editor));
+            }
+            else
+            {
+                Spawn.UnRegisterEvents();
+                TabsControl.AddTab(Spawn = new SpawnTab(Editor.Icons.Toolbox96, Editor));
+            }
+
+            if (VertexPaint == null)
+                TabsControl.AddTab(VertexPaint = new VertexPaintingTab(Editor.Icons.Paint96, Editor));
+
+            if(Foliage == null)
+                TabsControl.AddTab(Foliage = new FoliageTab(Editor.Icons.Foliage96, Editor));
+
+            if (Carve == null)
+                TabsControl.AddTab(Carve = new CarveTab(Editor.Icons.Terrain96, Editor));
 
             TabsControl.SelectedTabIndex = 0;
         }

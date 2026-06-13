@@ -1,12 +1,13 @@
 // Copyright (c) Wojciech Figat. All rights reserved.
 
+using FlaxEditor;
+using FlaxEditor.Scripting;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using FlaxEditor;
-using FlaxEditor.Scripting;
 
 namespace FlaxEngine.Utilities
 {
@@ -218,8 +219,20 @@ namespace FlaxEngine.Utilities
         /// <param name="checkAssembly">Additional callback used to check if the given assembly is valid. Returns true if search for types in the given assembly, otherwise false.</param>
         public static void GetTypes(List<ScriptType> result, Func<ScriptType, bool> checkFunc, Func<Assembly, bool> checkAssembly)
         {
+            //GC.Collect();
+            //GC.WaitForPendingFinalizers();
+            //GC.Collect();
+
             // C#/C++ types
             var assemblies = Utils.GetAssemblies();
+
+            //Editor.Log($"Utils.GetAssemblies() count = {assemblies.Length}");
+
+            //foreach (var a in assemblies)
+            //{
+            //    Editor.Log($"UTILS -> {a.FullName}");
+            //}
+
             for (int i = 0; i < assemblies.Length; i++)
             {
                 if (checkAssembly(assemblies[i]))
@@ -229,7 +242,22 @@ namespace FlaxEngine.Utilities
             // Custom types
             foreach (var customTypesInfo in CustomTypes)
                 customTypesInfo.GetTypes(result, checkFunc);
+
+        //    LogList(result);
         }
+
+        //private static void LogList(List<ScriptType> result)
+        //{
+        //    foreach (var t in result)
+        //    {
+        //        if (t.TypeName.Contains("Interactable"))
+        //        {
+        //            Editor.Log(
+        //                $"{t.TypeName} | {t.Type?.Assembly?.FullName}"
+        //            );
+        //        }
+        //    }
+        //}
 
         /// <summary>
         /// Gets all the types that have the given attribute defined within the given assembly.

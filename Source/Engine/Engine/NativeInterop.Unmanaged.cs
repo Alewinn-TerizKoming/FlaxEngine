@@ -1116,11 +1116,117 @@ namespace FlaxEngine.Interop
             }
 
             // Unload the ALC
-            scriptingAssemblyLoadContext.Unload();
+            Debug.Log("=== ALC BEFORE UNLOAD ===");
+
+            foreach (var asm in scriptingAssemblyLoadContext.Assemblies)
+            {
+                Debug.Log($"[ALC ASM] {asm.FullName}");
+            }
+
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                try
+                {
+                    if (asm.IsCollectible)
+                    {
+                        Debug.Log($"[COLLECTIBLE] {asm.FullName}");
+
+                        foreach (var type in asm.GetTypes().Take(10))
+                        {
+                            Debug.Log($"   TYPE {type.FullName}");
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            }
+
+            // Conserver uniquement des WeakReference pour le diagnostic
+            var alcRef = new WeakReference(scriptingAssemblyLoadContext);
+
+            WeakReference asmRef = null;
+
+            Assembly gameAsm = AppDomain.CurrentDomain
+                .GetAssemblies()
+                .FirstOrDefault(x => x.GetName().Name == "Game.CSharp");
+
+            if (gameAsm != null)
+            {
+                asmRef = new WeakReference(gameAsm);
+            }
+
+            // Désabonner les évènements AVANT le Unload
             scriptingAssemblyLoadContext.Resolving -= OnScriptingAssemblyLoadContextResolving;
 
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
+            // Déchargement
+            scriptingAssemblyLoadContext.Unload();
+
+            // IMPORTANT : supprimer toutes les références fortes
+            gameAsm = null;
+            scriptingAssemblyLoadContext = null;
+
+            // Plusieurs passes GC sont normales pour un ALC collectible
+            for (int i = 0; i < 10; i++)
+            {
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
+                GC.Collect();
+
+                if (!alcRef.IsAlive &&
+                    (asmRef == null || !asmRef.IsAlive))
+                {
+                    break;
+                }
+            }
+
+            // -----------------------------------------------------------------
+            // Diagnostic
+            // -----------------------------------------------------------------
+
+            Debug.Log($"[ALC] Alive={alcRef.IsAlive}");
+
+            if (alcRef.IsAlive && alcRef.Target != null)
+            {
+                Debug.Log($"[ALC TARGET] {alcRef.Target.GetType().FullName}");
+            }
+
+            if (asmRef != null)
+            {
+                Debug.Log($"[ASM] Alive={asmRef.IsAlive}");
+
+                if (asmRef.IsAlive && asmRef.Target is Assembly asm)
+                {
+                    Debug.Log($"[ASM NAME] {asm.FullName}");
+                }
+            }
+
+            // Assemblies encore présentes
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (asm.IsCollectible)
+                {
+                    Debug.Log($"[COLLECTIBLE] {asm.FullName}");
+                }
+            }
+
+            foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                if (asm.FullName.Contains("Game.CSharp"))
+                {
+                    Debug.Log($"[GAME ASM] {asm.FullName}");
+                }
+            }
+
+            if (alcRef.IsAlive && alcRef.Target is AssemblyLoadContext alc)
+            {
+                Debug.Log($"[ALC] Assemblies count = {alc.Assemblies.Count()}");
+
+                foreach (var asm in alc.Assemblies)
+                {
+                    Debug.Log($"[ALC ASM] {asm.FullName}");
+                }
+            }
 #endif
         }
 

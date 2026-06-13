@@ -551,11 +551,13 @@ namespace FlaxEditor.Modules.SourceCodeEditing
 
         private void OnScriptsReload()
         {
+
             ClearTypes();
         }
 
         private void OnScriptsReloadEnd()
         {
+            Editor.Log("OnScriptsReloadEnd");
             OnTypesChanged();
         }
 
