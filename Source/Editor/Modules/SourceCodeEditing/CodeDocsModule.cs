@@ -127,7 +127,7 @@ namespace FlaxEditor.Modules.SourceCodeEditing
         public override void OnExit()
         {
             OnTypesCleared();
-
+            Editor.CodeEditing.TypesCleared -= OnTypesCleared;
             base.OnExit();
         }
     }

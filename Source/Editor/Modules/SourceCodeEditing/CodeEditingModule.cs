@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text;
 using FlaxEditor.Options;
 using FlaxEditor.Scripting;
@@ -487,7 +488,7 @@ namespace FlaxEditor.Modules.SourceCodeEditing
                         }
                     }
                     // Remove Generated module files
-                    else if (fileName.Equals($"{className}.csproj", StringComparison.Ordinal) || 
+                    else if (fileName.Equals($"{className}.csproj", StringComparison.Ordinal) ||
                              fileName.Equals($"{className}.Gen.cs", StringComparison.Ordinal) ||
                              fileName.Equals($"{className}.Gen.cpp", StringComparison.Ordinal) ||
                              fileName.Equals($"{className}.Gen.h", StringComparison.Ordinal))
@@ -525,11 +526,13 @@ namespace FlaxEditor.Modules.SourceCodeEditing
             ScriptsBuilder.ScriptsLoaded -= OnScriptsLoaded;
         }
 
+
         /// <summary>
         /// Clears all the cached types.
         /// </summary>
         public void ClearTypes()
         {
+
             // Invalidate cached types
             All.ClearTypes();
             VisualScriptPropertyTypes.ClearTypes();
@@ -538,6 +541,7 @@ namespace FlaxEditor.Modules.SourceCodeEditing
             Controls.ClearTypes();
             AnimGraphNodes.ClearTypes();
             BehaviorTreeNodes.ClearTypes();
+
             TypesCleared?.Invoke();
         }
 
@@ -551,13 +555,11 @@ namespace FlaxEditor.Modules.SourceCodeEditing
 
         private void OnScriptsReload()
         {
-
             ClearTypes();
         }
 
         private void OnScriptsReloadEnd()
         {
-            Editor.Log("OnScriptsReloadEnd");
             OnTypesChanged();
         }
 

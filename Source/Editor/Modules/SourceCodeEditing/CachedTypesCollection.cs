@@ -15,7 +15,9 @@ namespace FlaxEditor.Modules.SourceCodeEditing
     [HideInEditor]
     public class CachedTypesCollection
     {
-        private bool _hasValidData; // { get { return false; } set { } }
+        // @Alewinn : short-circuit cached values to temporary remove hotload bug
+        private bool _hasValidData;
+        //private bool _hasValidData { get { return false; } set { } }
 
         private readonly int _capacity;
         private readonly Func<ScriptType, bool> _checkFunc;
@@ -69,6 +71,12 @@ namespace FlaxEditor.Modules.SourceCodeEditing
         /// <returns>The types collection (readonly).</returns>
         public List<ScriptType> Get()
         {
+            Editor.Log(
+                $"GET {GetType().Name} " +
+                $"valid={_hasValidData} " +
+                $"count={_list?.Count ?? 0}" +
+                $"ListId={_list?.GetHashCode()}");
+
             if (!_hasValidData)
             {
                 //if (_list == null)
@@ -118,9 +126,63 @@ namespace FlaxEditor.Modules.SourceCodeEditing
         /// </summary>
         public virtual void ClearTypes()
         {
-            _hasValidData = false;
             _list?.Clear();
+            _hasValidData = false;
+
+            // Alewinn
+            // Need unreadable logs ?
+            // Comment 2 lines above / Uncomment line below.
+            // N-Joy.
+            // LogedClearType();
+        }
+
+
+        private static readonly List<WeakReference> _oldLists = new();
+        private void LogedClearType()
+        {
+            _oldLists.Add(new WeakReference(_list));
+
             Editor.Log($"ClearTypes on {GetType().Name} id={GetHashCode()}");
+            if (_list != null)
+            {
+                foreach (var t in _list)
+                {
+                    if (t.Type != null)
+                    {
+                        var asm = t.Type.Assembly;
+
+                        if (asm.GetName().Name == "Game.CSharp")
+                        {
+                            Editor.LogWarning(
+                                $"CLEAR Game type {t.Type.FullName}");
+                        }
+                    }
+                }
+            }
+            _list?.Clear();
+            _list = new List<ScriptType>();
+
+            _hasValidData = false;
+
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+
+            for (int i = 0; i < _oldLists.Count; i++)
+            {
+                Editor.Log($"OldList[{i}] Alive={_oldLists[i].IsAlive}");
+            }
+
+            int gameTypes = 0;
+
+            foreach (var t in _list)
+            {
+                if (t.Type?.Assembly?.GetName().Name == "Game.CSharp")
+                    gameTypes++;
+            }
+
+            Editor.LogWarning(
+                $"{GetType().Name} clearing {gameTypes} Game types");
         }
     }
 }

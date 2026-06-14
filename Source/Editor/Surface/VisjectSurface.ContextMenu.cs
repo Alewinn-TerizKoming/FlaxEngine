@@ -133,20 +133,20 @@ namespace FlaxEditor.Surface
                 Profiler.EndEvent();
             }
 
+
             private void OnActiveContextMenuShowAsync()
             {
                 Profiler.BeginEvent("Setup Context Menu (async)");
 #if DEBUG_SEARCH_TIME
                 var searchStartTime = DateTime.Now;
 #endif
-
                 foreach (var scriptType in Editor.Instance.CodeEditing.AllWithStd.Get())
                 {
                     if (SurfaceUtils.IsValidVisualScriptType(scriptType))
                     {
                         _iterator(scriptType, _cache, _version);
                     }
-                }
+                }                   
 
                 // Add group to context menu (on a main thread)
                 FlaxEngine.Scripting.InvokeOnUpdate(() =>
@@ -183,6 +183,9 @@ namespace FlaxEditor.Surface
                 {
                     _cache.Clear();
                     _version++;
+
+                    // Fix types don't show after second hotreload
+                    Editor.Instance.CodeEditing.AllWithStd.ClearTypes();
                 }
 
                 Editor.Instance.CodeEditing.TypesCleared -= OnCodeEditingTypesCleared;
